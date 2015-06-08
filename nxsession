@@ -163,7 +163,9 @@ if [ -n "$CLIENT" ]; then
 		sleep 1
 		done
 		# run startup script
-		env DISPLAY=:$X_DISPLAY $HOME/.nxstartup &> $NX_BASE/x_session &
+        startup=$HOME/.nxstartup
+        [ -x $startup ] || startup=xterm
+        env DISPLAY=:$X_DISPLAY $startup &> $NX_BASE/x_session &
 	fi
 	# send $COOKIE
 	echo "Cookie:$COOKIE" # write a line (the client will wait for this)
