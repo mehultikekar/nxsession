@@ -1,21 +1,42 @@
-# Replacement for VNC, ssh -X
+# Persistent X sessions using NX
 
-nxsession is a shell script that uses [NX 3](https://www.nomachine.com) libraries to start persistent X sessions. Think of it as screen/tmux for X.
+nxsession is a shell script that uses [NX 3](https://www.nomachine.com) to start persistent X sessions. Think of it as screen or tmux for X.
+
+It is better than `ssh -X` because:
+
+1. The NX session is not killed if the network disconnects.
+2. It is more responsive as it reduces number of round-trips between the client and server.
+
+It is better than VNC because:
+
+1. It has much lower bandwidth requirement.
+2. It plays well with multi-monitor setups.
+
+At present, it has been tested on Linux host - Linux viewer setups.
 
 ## How to use
 
 Say you have two machines `work` and `home`. You are at `home` and want to run programs on `work`:
 
 ```bash
-home> nxsession 3 -h work
-# this will start an xterm from which you can launch other programs
+home> nxsession work:3
+# this starts an NX session on work with windows on home
+# by default, it opens xterm from which you launch other programs
 # once you are done, suspend the session as:
-home> nxsession 3 -s
+home> nxsession :3 -s
 # at work, you can get back the windows as:
-work> nxsession 3
+work> nxsession :3
 ```
 
-If you left the session running other one machine and want to access it on another, add `-f` to force the first machine to disconnect.
+Or, if you are at `work` and intend to continue on `home` later:
+
+```bash
+work> nxsession :3
+# this starts and displays an NX session on work
+# at home, you can move all windows from work as:
+home> nxsession work:3 -f
+```
+
 
 ## Install without sudo access
 
@@ -79,4 +100,5 @@ Before using, add the bin folder to PATH.
 
 1. By default, a new session will start with xterm, unless a `~/.nxstartup` file exists and has execute permissions.
 2. If you closed your terminal and cannot open any new programs in the session, ssh to the remote machine and run `env DISPLAY=:<n> xterm &`.
-3. Read comments in the [nxsession](nxsession) script for its usage.
+3. If you left the session connected to one machine and want to access it on another, add `-f` to force the first machine to disconnect.
+4. `nxsession -h` prints its help message.
