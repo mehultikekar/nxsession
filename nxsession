@@ -36,6 +36,8 @@
 # Author: Lars Hofhansl
 #
 
+unset XAUTHORITY # for local sessions
+unset HOST  # HOST is set to hostname on mtl machines
 SCRIPT=`basename $0`
 
 function usage() {
