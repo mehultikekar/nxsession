@@ -15,11 +15,11 @@
 # freeNX or any NX client is NOT needed.
 #
 # In the simplest case just run (on the local server):
-#   nxsession :<x port> -h <host>
-# (if -h is omitted a local session is created/resumed, you later connect to that session through another server)
+#   nxsession <host>:<display>
+# (if <host> is omitted a local session is created/resumed, you later connect to that session through another server)
 #
-# If -h is present, you'll be requested to log in the remote (client) machine via SSH.
-# An NX session is automatically created/resumed on the client. When the session is created .nxstartup is execute
+# If <host> is present, you'll be requested to log in the remote (client) machine via SSH.
+# An NX session is automatically created/resumed on the client. When the session is created .nx/xstartup is execute
 # to start default X applications. When the last X application has ended the remote NX session ends automatically.
 # All traffic is tunelled through the SSH connection.
 #
@@ -29,7 +29,7 @@
 # In addition that cookie is passed to the (local) server to also secure the nxproxy connection.
 #
 # To suspend a session from the (local) server use:
-#   nxsession :<x port> -s
+#   nxsession :<display> -s
 #
 # nxsession can also be used standalone on the remote client to terminate the session (-t)
 #
@@ -242,7 +242,7 @@ if $is_host; then
             sleep 1
         done
         # run startup script
-        startup=$HOME/.nxstartup
+        startup=$HOME/.nx/xstartup
         [ -x $startup ] || startup=xterm
         env DISPLAY=:$x_display $startup &> $nx_base/x_session &
     fi

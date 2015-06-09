@@ -12,7 +12,7 @@ It is better than VNC because:
 1. It has much lower bandwidth requirement.
 2. It plays well with multi-monitor setups.
 
-At present, it has been tested on Linux host - Linux viewer setups.
+At present, it has been tested on Linux host and Linux/Mac OS X viewer setups. Windows viewer is being developed.
 
 ## How to use
 
@@ -20,8 +20,8 @@ Say you have two machines `work` and `home`. You are at `home` and want to run p
 
 ```bash
 home> nxsession work:3
-# this starts an NX session on work with windows on home
-# by default, it opens xterm from which you launch other programs
+# this starts an NX session on work with windows on home.
+# by default, it opens xterm from which you launch other programs.
 # once you are done, suspend the session as:
 home> nxsession :3 -s
 # at work, you can get back the windows as:
@@ -32,13 +32,12 @@ Or, if you are at `work` and intend to continue on `home` later:
 
 ```bash
 work> nxsession :3
-# this starts and displays an NX session on work
+# this starts and displays an NX session on work.
 # at home, you can move all windows from work as:
 home> nxsession work:3 -f
 ```
 
-
-## Install without sudo access
+## Install host and client on Linux (without root access)
 
 [x2go](http://wiki.x2go.org/doku.php/download:start) maintains compiled binaries for all NX libraries. For example, rpm's for RHEL are [here](http://packages.x2go.org/epel) Download rpm’s for the appropriate version of RHEL.
 
@@ -59,7 +58,7 @@ home> nxsession work:3 -f
 15. nxagent
 16. nxproxy
 
-The `home` computer needs only nxproxy and libXcomp3. `work` needs all the packages.
+The client needs only nxproxy and libXcomp3, while the host needs all the packages except nxproxy. For a complete host+client setup, simply get all packages.
 
 Extract the rpm into a folder:
 
@@ -94,7 +93,11 @@ patchelf --set-rpath '$ORIGIN/../lib64' nxproxy
 cp <path to repo>/nxsession .
 ```
 
-Before using, add the bin folder to PATH.
+Before using, add the bin folder to PATH on the viewer. On the remote host, make sure the login shell adds nxsession to PATH by editing the appropriate rc file (~/.bashrc, ~/.profile, ~/.tcshrc).
+
+## Install client on Mac OS X
+
+Download the X2Go Client dmg from [here](http://wiki.x2go.org/doku.php/download:start) and copy nxsession into the same folder as the nxproxy executable and add the folder to PATH.
 
 ## Notes
 
