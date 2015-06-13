@@ -1,0 +1,156 @@
+#!/bin/bash
+unset XAUTHORITY DISPLAY
+
+script=$(basename ${BASH_SOURCE[0]})
+
+usage="Usage:
+  $script start :<display> [-f] [-nx <opts>]
+  $script suspend :<display>
+  $script stop :<display>
+  $script list
+  $script -h"
+
+exit_msg() {
+    echo "$2"
+    exit "$1"
+}
+
+# base, pid, is_active take <display> as input
+base() { echo "$HOME/.nx/C-$1"; }
+
+pid() {
+    local pid
+    if pid=$(cat $(base $1)/pid 2> /dev/null); then
+        if ps -p "$pid" -o euid,comm | grep -q $(id -u)" nxagent"; then
+            echo "$pid"
+            return 0
+        fi
+    fi
+    return 1
+}
+
+is_active() { fuser -s $(($1+4000))/tcp; }
+
+_suspend() {
+    local pid=$1
+    kill -HUP $pid
+    sleep 1
+    pkill -HUP -P $pid # this is for the 2nd nxagent started by the 1st one as a watchdog
+    sleep 1
+}
+
+nxhost-start() {
+    local xdpy nx_opts
+    local force=false
+    while [ "${1+defined}" ]; do
+        case "$1" in
+            -f) force=true ;;
+           -nx) shift
+                [ "${1+defined}" ] && nx_opts="$1" || { echo "Expecting argument after -nx"; exit_msg 1 "$usage"; } ;;
+             *) xdpy=$(get_xdpy "$1") ;;
+        esac
+        shift
+    done
+    local nx_base=$(base $xdpy)
+
+    save_cookie() {
+        echo "nodelay=1,cleanup=0,accept=127.0.0.1,taint=1,cookie=$1,$nx_opts" > $nx_base/options
+    }
+
+    local pid cookie
+
+    if pid=$(pid $xdpy); then
+        if is_active $xdpy; then
+            $force || exit_msg 1 "Did not connect as another connection is active. Try again with -f."
+            _suspend $pid
+        fi
+        cookie=$(xauth nlist :$xdpy | cut -d' ' -f9)
+        save_cookie $cookie
+        kill -HUP $pid
+    else
+        is_active $xdpy && exit_msg 1 "Cannot start as NX port is in use. Try with a different <display>."
+        fuser -s $((xdpy+6000))/tcp && exit_msg 1 "Cannot start as display :$xdpy is in use. Try with a different <display>."
+
+        rm -rf $nx_base
+        mkdir -p $nx_base
+
+        cookie=$(head -c 16 /dev/urandom | hexdump -e '1/1 "%02x"')
+        xauth add :$xdpy . $cookie
+
+        save_cookie $cookie
+        nxagent -display nx/nx,options=$nx_base/options:$xdpy :$xdpy -R -nolisten tcp -persistent -reset -dpi 144 -forcenx -class TrueColor -auth $HOME/.Xauthority &> $nx_base/session &
+        echo $! > $nx_base/pid
+
+        while ! is_active $xdpy; do
+            sleep 1
+        done
+
+        ( DISPLAY=":$xdpy"
+        export DISPLAY
+        $HOME/.nx/xstartup &
+        if [ $? -ne 0 ] ; then
+            [ -r $HOME/.Xresources ] && xrdb -merge $HOME/.Xresources
+            xterm &
+        fi ) &> $nx_base/x_session
+    fi
+
+    echo "Cookie:$cookie"
+    sleep 1
+}
+
+get_xdpy () {
+    if [[ "$1" =~ ^:[0-9]+$ ]]; then
+        echo "${1#:}"
+    else
+        echo "Expecting an argument of the form :1, :2, etc. for :<display>"
+        exit_msg 1 "$usage"
+    fi
+}
+
+nxhost-list() {
+    cd $HOME/.nx
+    local xdpy
+    for b in $(find -maxdepth 1 -type d -name 'C-*' -print); do
+        xdpy=${b#./C-}
+        echo -n ":$xdpy is"
+        if pid=$(pid $xdpy); then
+            echo -n " running ($pid)"
+            if is_active $xdpy; then
+                echo " and active."
+            else
+                echo " but suspended."
+            fi
+        else
+            echo " not running."
+        fi
+    done
+}
+
+nxhost-suspend() {
+    local xdpy=$(get_xdpy "$1")
+    local pid
+
+    pid=$(pid $xdpy) && _suspend $pid
+}
+
+nxhost-stop() {
+    local xdpy=$(get_xdpy "$1")
+    local pid
+
+    if pid=$(pid $xdpy); then
+        is_active $xdpy && _suspend $pid
+        kill -TERM $pid || kill -9 $pid
+        xauth remove :$xdpy
+        echo "Terminated :$xdpy"
+    else
+        exit_msg 1 "No agent found to kill on :$xdpy"
+    fi
+}
+
+cmd="$1"
+shift
+case "$cmd" in
+    start|stop|suspend|list) nxhost-$cmd "$@";;
+    -h) exit_msg 0 "$usage";;
+     *) echo "Unknown command $cmd"; exit_msg 1 "$usage";;
+esac

@@ -1,0 +1,134 @@
+#!/bin/bash
+script=$(basename ${BASH_SOURCE[0]})
+
+usage="Usage:
+  $script connect [<host>]:<display> [-f] [-ssh <opts>]
+  $script suspend :<display>
+  $script list
+  $script list <host> [-ssh <opts>]
+  $script -h"
+
+full_help="Connect to persistent X sessions. Like screen or tmux for X!
+
+"$usage"
+
+Commands:
+  connect     Connect to remote session on <host>. A session will automatically
+              be created if one doesn't exist. Will connect to a local session
+              if no <host> is provided.
+  suspend     Suspend remote session. A suspended session can be resumed later
+              from the same or different viewer computer.
+  list        List remote sessions connected to.
+  list <host> List sessions hosted by <host>.
+
+Options:
+  <host>      domain name or IP address of remote host
+  <display>   X display number e.g. 1, 2, 3, etc.
+  -f          disconnect other viewers
+  -ssh <opts> ssh options"
+
+exit_msg() {
+    echo "$2"
+    exit "$1"
+}
+
+# base and pid take <display> as input
+base() { echo "$HOME/.nx/S-$1"; }
+
+pid() {
+    local pid
+    if pid=$(cat $(base $1)/pid 2> /dev/null); then
+        if ps -p "$pid" -o euid,comm | grep -q $(id -u)" nxproxy"; then
+            echo "$pid"
+            return 0
+        fi
+    fi
+    return 1
+}
+
+get_xdpy () {
+    if [[ "$1" =~ ^:[0-9]+$ ]]; then
+        echo "${1#:}"
+    else
+        echo "Expecting an argument of the form :1, :2, etc. for :<display>"
+        exit_msg 1 "$usage"
+    fi
+}
+
+nxviewer-connect() {
+    local force_opt ssh_opts host xdpy
+    while [ "${1+defined}" ]; do
+        case "$1" in
+            -f) force_opt=-f;;
+            -ssh)
+                shift
+                [ "${1+defined}" ] && ssh_opts="$1" || { echo "Expecting an argument after -ssh"; exit_msg 1 "$usage"; }
+                ;;
+            *) host="${1%:*}"; xdpy=$(get_xdpy "${1#$host}") ;;
+        esac
+        shift
+    done
+
+    local nx_port=$((xdpy+4000))
+    local result
+
+    if [ -z "$host" ]; then
+        echo "Starting/resuming local session"
+        result=$(nxhost start :$xdpy -nx link=lan $force_opt | head -n1)
+    else
+        echo "Starting/resuming session on $host"
+        result=$(ssh -T -f -o ExitOnForwardFailure=yes -L$nx_port:localhost:$nx_port $host $ssh_opts "nxhost start :$xdpy -nx link=wan $force_opt" | head -n1)
+    fi
+
+    local tag cookie
+    IFS=: read tag cookie <<< "$result"
+    [ "$tag" = Cookie ] || exit_msg 1 "Host says: ""$result"
+
+    local nx_base=$(base $xdpy)
+    rm -rf $nx_base
+    mkdir -p $nx_base
+
+    echo "Starting viewer ... session may take a few seconds to start"
+    echo "cookie=$cookie" > $nx_base/options
+
+    nxproxy options=$nx_base/options -S localhost:$xdpy &> $nx_base/session &
+    echo $! > $nx_base/pid
+}
+
+nxviewer-suspend() {
+    local xdpy=$(get_xdpy "$1")
+
+    if kill -HUP $(pid $xdpy) 2> /dev/null; then
+        echo "Session :$xdpy suspended"
+    else
+        exit_msg 1 "Already suspended?"
+    fi
+}
+
+nxviewer-list() {
+    if [ "${1+defined}" ]; then
+        ssh "$1" $ssh_opts -t "nxhost list"
+    else
+        cd $HOME/.nx
+        local xdpy
+        for b in $(find -maxdepth 1 -type d -name 'S-*' -print); do
+            xdpy=${b#./S-}
+            echo -n ":$xdpy is"
+            if pid=$(pid $xdpy); then
+                echo " running ($pid)."
+            else
+                echo " not running."
+            fi
+        done
+    fi
+}
+
+
+cmd="$1"
+shift
+
+case "$cmd" in
+    connect|suspend|list) nxviewer-$cmd "$@";;
+    -h) exit_msg 0 "$full_help";;
+     *) echo "Unknown command: $cmd"; exit_msg 1 "$usage";;
+esac
