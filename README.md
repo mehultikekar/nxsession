@@ -1,6 +1,6 @@
 # Persistent X sessions using NX
 
-nxsession is a shell script that uses [NX 3](https://www.nomachine.com) to start persistent X sessions. Think of it as screen or tmux for X.
+nxsession uses [NX 3](https://www.nomachine.com) and bash scripts to start and manage persistent X sessions. Think of it as screen or tmux for X.
 
 It is better than `ssh -X` because:
 
@@ -12,32 +12,32 @@ It is better than VNC because:
 1. It has much lower bandwidth requirement.
 2. It plays well with multi-monitor setups.
 
-At present, it has been tested on Linux host and Linux/Mac OS X viewer setups. Windows viewer is being developed.
+The code is just two bash scripts - [nxviewer](nxviewer) and [nxhost](nxhost) for the viewer and host respectively. At present, it has been tested on Linux host and Linux/Mac OS X viewer setups. Windows viewer is being developed.
 
 ## How to use
 
 Say you have two machines `work` and `home`. You are at `home` and want to run programs on `work`:
 
 ```bash
-home> nxsession work:3
+home> nxviewer connect work:3
 # this starts an NX session on work with windows on home.
 # by default, it opens xterm from which you launch other programs.
 # once you are done, suspend the session as:
-home> nxsession :3 -s
+home> nxviewer suspend :3
 # at work, you can get back the windows as:
-work> nxsession :3
+work> nxviewer connect :3
 ```
 
 Or, if you are at `work` and intend to continue on `home` later:
 
 ```bash
-work> nxsession :3
+work> nxviewer connect :3
 # this starts and displays an NX session on work.
 # at home, you can move all windows from work as:
-home> nxsession work:3 -f
+home> nxviewer connect work:3 -f
 ```
 
-## Install host and client on Linux (without root access)
+## Install host and viewer on Linux (without root access)
 
 [x2go](http://wiki.x2go.org/doku.php/download:start) maintains compiled binaries for all NX libraries. For example, rpm's for RHEL are [here](http://packages.x2go.org/epel) Download rpm’s for the appropriate version of RHEL.
 
@@ -58,7 +58,7 @@ home> nxsession work:3 -f
 15. nxagent
 16. nxproxy
 
-The client needs only nxproxy and libXcomp3, while the host needs all the packages except nxproxy. For a complete host+client setup, simply get all packages.
+The viewer needs only nxproxy and libXcomp3, while the host needs all the packages except nxproxy. For a complete host+viewer setup, simply get all packages.
 
 Extract the rpm into a folder:
 
@@ -82,7 +82,7 @@ usr ->
   share -> man pages, docs, etc.
 ```
 
-We will remove the wrappers and move the actual executables in their place. The wrappers are probably needed for a full-fledged nxclient-nxserver setup or for x2go. Also, add [rpath](http://en.wikipedia.org/wiki/Rpath) to the executables so that they can find their libraries. Finally, copy the provided [nxsession](nxsession) script into the bin folder.
+We will remove the wrappers and move the actual executables in their place. The wrappers are probably needed for a full-fledged nxclient-nxserver setup or for x2go. Also, add [rpath](http://en.wikipedia.org/wiki/Rpath) to the executables so that they can find their libraries. Finally, copy nxviewer and nxhost scripts into the bin folder.
 
 ```bash
 cd usr/bin
@@ -90,18 +90,19 @@ mv ../lib64/nx/bin/* .
 rm -r ../lib64/nx
 patchelf --set-rpath '$ORIGIN/../lib64' nxagent
 patchelf --set-rpath '$ORIGIN/../lib64' nxproxy
-cp <path to repo>/nxsession .
+cp <path to repo>/nxviewer .
+cp <path to repo>/nxhost .
 ```
 
-Before using, add the bin folder to PATH on the viewer. On the remote host, make sure the login shell adds nxsession to PATH by editing the appropriate rc file (~/.bashrc, ~/.profile, ~/.tcshrc).
+Before using, add the bin folder to PATH on the viewer. On the host, make sure the *login* shell adds the bin folder to PATH by editing the appropriate rc file (~/.bashrc, ~/.profile, ~/.tcshrc).
 
-## Install client on Mac OS X
+## Install viewer on Mac OS X
 
-Download the X2Go Client dmg from [here](http://wiki.x2go.org/doku.php/download:start) and copy nxsession into the same folder as the nxproxy executable and add the folder to PATH.
+Download the X2Go Client dmg from [here](http://wiki.x2go.org/doku.php/download:start) and copy nxviewer into the same folder as the nxproxy executable and add the folder to PATH. We have tried to use only common UNIX commands that should be installed on OS X by default. If that is not the case, please open an issue.
 
 ## Notes
 
-1. By default, a new session will start with xterm, unless a `~/.nxstartup` file exists and has execute permissions.
-2. If you closed your terminal and cannot open any new programs in the session, ssh to the remote machine and run `env DISPLAY=:<n> xterm &`.
+1. A new session executes `~/.nx/xstartup` file. If it fails, it will try `xterm`.
+2. If you closed your terminal and cannot open any new programs in the session, ssh to the remote machine and run `env DISPLAY=:<display> xterm &`.
 3. If you left the session connected to one machine and want to access it on another, add `-f` to force the first machine to disconnect.
-4. `nxsession -h` prints its help message.
+4. Run `nxviewer -h` to see all available commands and options.
