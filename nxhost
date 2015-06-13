@@ -5,7 +5,6 @@ script=$(basename ${BASH_SOURCE[0]})
 
 usage="Usage:
   $script start :<display> [-f] [<nx_opts>...]
-  $script suspend :<display>
   $script stop :<display>
   $script list
   $script -h"
@@ -15,13 +14,10 @@ exit_msg() {
     exit "$1"
 }
 
-# base, pid, is_active take <display> as input
-base() { echo "$HOME/.nx/C-$1"; }
-
-pid() {
+get_pid() {
     # prints pid and return success if nxagent is running, else return fail
     local pid
-    if pid=$(cat $(base $1)/pid 2> /dev/null); then
+    if pid=$(cat "$1"/pid 2> /dev/null); then
         if ps -p "$pid" -o euid,comm | grep -q $(id -u)" nxagent"; then
             echo "$pid"
             return 0
@@ -33,6 +29,15 @@ pid() {
 # return success if nxagent is listening on its port
 is_active() { fuser -s $(($1+4000))/tcp; }
 
+set_xdpy() {
+    if [[ "$1" =~ ^:[0-9]+$ ]]; then
+        xdpy="${1#:}"
+    else
+        echo "Expecting :<display> where <display> is a positive integer. Got '"$1"' instead."
+        exit_msg 1 "$usage"
+    fi
+}
+
 _suspend() {
     local pid=$1
     kill -HUP $pid # HUP suspends and resumes nxagent
@@ -43,12 +48,12 @@ _suspend() {
 
 nxhost-start() {
     local xdpy force nx_opts
-    xdpy=$(get_xdpy "$1")
+    set_xdpy "$1"
     shift
     [ "$1" = -f ] && { force=true; shift; } || force=false
     nx_opts="$@"
 
-    local nx_base=$(base $xdpy)
+    local nx_base="$HOME/.nx/C-$xdpy"
 
     save_cookie() {
         echo "nodelay=1,cleanup=0,accept=127.0.0.1,taint=1,cookie=$1,$nx_opts" > $nx_base/options
@@ -56,7 +61,7 @@ nxhost-start() {
 
     local pid cookie
 
-    if pid=$(pid $xdpy); then
+    if pid=$(get_pid "$nx_base"); then
         # nxagent is already running. suspend it, save new options and resume it.
         if is_active $xdpy; then
             $force || exit_msg 1 "Did not connect as another connection is active. Try again with -f."
@@ -99,22 +104,13 @@ nxhost-start() {
     sleep 1
 }
 
-get_xdpy () {
-    if [[ "$1" =~ ^:[0-9]+$ ]]; then
-        echo "${1#:}"
-    else
-        echo "Expecting an argument of the form :1, :2, etc. for :<display>"
-        exit_msg 1 "$usage"
-    fi
-}
-
 nxhost-list() {
     cd $HOME/.nx
-    local xdpy
+    local xdpy pid
     for b in $(find -maxdepth 1 -type d -name 'C-*' -print); do
         xdpy=${b#./C-}
         echo -n ":$xdpy is"
-        if pid=$(pid $xdpy); then
+        if pid=$(get_pid "$b"); then
             echo -n " running ($pid)"
             if is_active $xdpy; then
                 echo " and active."
@@ -127,19 +123,11 @@ nxhost-list() {
     done
 }
 
-nxhost-suspend() {
-    # not really useful for anything except perhaps debugging
-    local xdpy=$(get_xdpy "$1")
-    local pid
-
-    pid=$(pid $xdpy) && _suspend $pid
-}
-
 nxhost-stop() {
-    local xdpy=$(get_xdpy "$1")
-    local pid
+    local xdpy pid
+    set_xdpy "$1"
 
-    if pid=$(pid $xdpy); then
+    if pid=$(get_pid "$HOME/.nx/C-$xdpy"); then
         # first suspend to make it stop listening on port then kill
         is_active $xdpy && _suspend $pid
         kill -TERM $pid || kill -9 $pid

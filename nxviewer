@@ -32,12 +32,10 @@ exit_msg() {
     exit "$1"
 }
 
-# base and pid take <display> as input
-base() { echo "$HOME/.nx/S-$1"; }
-
-pid() {
+get_pid() {
+    # prints pid and return success if nxproxy is running, else return fail
     local pid
-    if pid=$(cat $(base $1)/pid 2> /dev/null); then
+    if pid=$(cat "$1"/pid 2> /dev/null); then
         if ps -p "$pid" -o euid,comm | grep -q $(id -u)" nxproxy"; then
             echo "$pid"
             return 0
@@ -46,19 +44,17 @@ pid() {
     return 1
 }
 
-get_xdpy () {
-    if [[ "$1" =~ ^:[0-9]+$ ]]; then
-        echo "${1#:}"
-    else
-        echo "Expecting an argument of the form :1, :2, etc. for :<display>"
+set_host_xdpy() {
+    IFS=: read host xdpy <<< "$1"
+    if ! [[ "$xdpy" =~ ^[0-9]+$ ]]; then
+        echo "<display> must be a positive integer. Got '"$xdpy"' instead."
         exit_msg 1 "$usage"
     fi
 }
 
 nxviewer-connect() {
     local force_opt host xdpy
-    host="${1%:*}"
-    xdpy=$(get_xdpy "${1#$host}")
+    set_host_xdpy "$1"
     shift
     [ "$1" = -f ] && { force_opt=-f; shift; }
     # rest are ssh options
@@ -80,7 +76,7 @@ nxviewer-connect() {
     IFS=: read tag cookie <<< "$result"
     [ "$tag" = Cookie ] || exit_msg 1 "Host says: ""$result"
 
-    local nx_base=$(base $xdpy)
+    local nx_base="$HOME/.nx/S-$xdpy"
     rm -rf $nx_base
     mkdir -p $nx_base
 
@@ -92,10 +88,12 @@ nxviewer-connect() {
 }
 
 nxviewer-suspend() {
-    local xdpy=$(get_xdpy "$1")
+    local host xdpy
+    set_host_xdpy "$1"
+    [ -z "$host" ] || { echo "error in :<display> argument $1"; exit_msg 1 "$usage"; }
     # suspending nxproxy is enough, nxagent gets suspended automatically
 
-    if kill -HUP $(pid $xdpy) 2> /dev/null; then
+    if kill -HUP $(get_pid "$HOME/.nx/S-$xdpy") 2> /dev/null; then
         echo "Session :$xdpy suspended"
     else
         exit_msg 1 "Already suspended?"
@@ -104,17 +102,14 @@ nxviewer-suspend() {
 
 nxviewer-list() {
     if [ "${1+defined}" ]; then
-        local host
-        host=$1
-        shift
-        ssh "$host" "$@" -t "nxhost list"
+        ssh "$@" -t "nxhost list"
     else
         cd $HOME/.nx
-        local xdpy
+        local xdpy pid
         for b in $(find -maxdepth 1 -type d -name 'S-*' -print); do
             xdpy=${b#./S-}
             echo -n ":$xdpy is"
-            if pid=$(pid $xdpy); then
+            if pid=$(get_pid "$b"); then
                 echo " running ($pid)."
             else
                 echo " not running."
