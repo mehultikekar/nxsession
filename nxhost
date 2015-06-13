@@ -100,25 +100,26 @@ nxhost-start() {
         fi ) &> $nx_base/x_session
     fi
 
+    read viewer _ <<< $SSH_CONNECTION
+    [ -z "$viewer" ] && viewer=localhost
+    echo "$viewer" > $nx_base/viewer
+
     echo "Cookie:$cookie" # the cookie is used by nxviewer to secure nxproxy
     sleep 1
 }
 
 nxhost-list() {
     cd $HOME/.nx
-    local xdpy pid
+    local xdpy pid viewer
     for b in $(find -maxdepth 1 -type d -name 'C-*' -print); do
-        xdpy=${b#./C-}
-        echo -n ":$xdpy is"
         if pid=$(get_pid "$b"); then
-            echo -n " running ($pid)"
+            xdpy=${b#./C-}
             if is_active $xdpy; then
-                echo " and active."
+                viewer=$(cat "$b"/viewer 2> /dev/null)
+                echo "Hosted session :$xdpy (pid $pid) is connected to $viewer."
             else
-                echo " but suspended."
+                echo "Hosted session :$xdpy (pid $pid) is suspended."
             fi
-        else
-            echo " not running."
         fi
     done
 }
@@ -143,7 +144,7 @@ cmd="$1"
 shift
 
 case "$cmd" in
-    start|stop|suspend|list) nxhost-$cmd "$@";;
+    start|stop|list) nxhost-$cmd "$@";;
     -h) exit_msg 0 "$usage";;
      *) echo "Unknown command $cmd"; exit_msg 1 "$usage";;
 esac

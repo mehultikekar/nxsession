@@ -66,6 +66,7 @@ nxviewer-connect() {
 
     if [ -z "$host" ]; then
         echo "Starting/resuming local session"
+        unset SSH_CONNECTION # nxhost uses this to set host
         result=$(nxhost start :$xdpy $force_opt link=lan | head -n1)
     else
         echo "Starting/resuming session on $host"
@@ -85,6 +86,7 @@ nxviewer-connect() {
 
     nxproxy options=$nx_base/options -S localhost:$xdpy &> $nx_base/session &
     echo $! > $nx_base/pid
+    echo "$host" > $nx_base/host
 }
 
 nxviewer-suspend() {
@@ -105,14 +107,13 @@ nxviewer-list() {
         ssh "$@" -t "nxhost list"
     else
         cd $HOME/.nx
-        local xdpy pid
+        local xdpy host pid sesstype
         for b in $(find -maxdepth 1 -type d -name 'S-*' -print); do
-            xdpy=${b#./S-}
-            echo -n ":$xdpy is"
             if pid=$(get_pid "$b"); then
-                echo " running ($pid)."
-            else
-                echo " not running."
+                xdpy=${b#./S-}
+                host=$(cat "$b"/host 2> /dev/null)
+                [ -z "$host" ] && sesstype=Local || sesstype=Remote
+                echo "$sesstype session $host:$xdpy (pid $pid) is running."
             fi
         done
     fi
