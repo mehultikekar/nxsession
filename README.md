@@ -12,7 +12,7 @@ It is better than VNC because:
 1. It has much lower bandwidth requirement.
 2. It plays well with multi-monitor setups.
 
-The code is just two bash scripts - [nxviewer](nxviewer) and [nxhost](nxhost) for the viewer and host respectively. At present, it has been tested on Linux host and Linux/Mac OS X viewer setups. Windows viewer is being developed.
+The code is just one bash script each for the viewer and host - [nxviewer](nxviewer) and [nxhost](nxhost) that call NX 3 binaries nxproxy and nxagent respectively. At present, it has been tested on Linux host and Linux/Mac OS X viewer setups. Windows viewer is being developed.
 
 ## How to use
 
@@ -39,7 +39,7 @@ home> nxviewer connect work:3 -f
 
 ## Install host and viewer on Linux (without root access)
 
-[x2go](http://wiki.x2go.org/doku.php/download:start) maintains compiled binaries for all NX libraries. For example, rpm's for RHEL are [here](http://packages.x2go.org/epel). Download rpm’s for the appropriate version of RHEL.
+[x2go](http://wiki.x2go.org/doku.php/download:start) maintains compiled binaries for all NX 3 libraries. For example, rpm's for RHEL are [here](http://packages.x2go.org/epel). Download rpm’s for the appropriate version of RHEL.
 
 1. libNX_X11-6
 2. libNX_Xcomposite1
