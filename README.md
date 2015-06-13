@@ -39,7 +39,7 @@ home> nxviewer connect work:3 -f
 
 ## Install host and viewer on Linux (without root access)
 
-[x2go](http://wiki.x2go.org/doku.php/download:start) maintains compiled binaries for all NX libraries. For example, rpm's for RHEL are [here](http://packages.x2go.org/epel) Download rpm’s for the appropriate version of RHEL.
+[x2go](http://wiki.x2go.org/doku.php/download:start) maintains compiled binaries for all NX libraries. For example, rpm's for RHEL are [here](http://packages.x2go.org/epel). Download rpm’s for the appropriate version of RHEL.
 
 1. libNX_X11-6
 2. libNX_Xcomposite1
@@ -94,7 +94,7 @@ cp <path to repo>/nxviewer .
 cp <path to repo>/nxhost .
 ```
 
-Before using, add the bin folder to PATH on the viewer. On the host, make sure the *login* shell adds the bin folder to PATH by editing the appropriate rc file (~/.bashrc, ~/.profile, ~/.tcshrc).
+Before using nxviewer, add the bin folder to PATH. On the host, make sure the **login** shell adds the bin folder to PATH by editing the appropriate rc file (~/.bashrc, ~/.profile, ~/.tcshrc). Test your host installation by running `ssh <host> -t nxhost` from the viewer. It should print nxhost's help message.
 
 ## Install viewer on Mac OS X
 
