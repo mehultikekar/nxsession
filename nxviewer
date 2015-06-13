@@ -2,10 +2,10 @@
 script=$(basename ${BASH_SOURCE[0]})
 
 usage="Usage:
-  $script connect [<host>]:<display> [-f] [-ssh <opts>]
+  $script connect [<host>]:<display> [-f] [<ssh_opts>...]
   $script suspend :<display>
   $script list
-  $script list <host> [-ssh <opts>]
+  $script list <host> [<ssh_opts>...]
   $script -h"
 
 full_help="Connect to persistent X sessions. Like screen or tmux for X!
@@ -25,7 +25,7 @@ Options:
   <host>      domain name or IP address of remote host
   <display>   X display number e.g. 1, 2, 3, etc.
   -f          disconnect other viewers
-  -ssh <opts> ssh options"
+  <ssh_opts>  options to be passed on to ssh"
 
 exit_msg() {
     echo "$2"
@@ -56,28 +56,24 @@ get_xdpy () {
 }
 
 nxviewer-connect() {
-    local force_opt ssh_opts host xdpy
-    while [ "${1+defined}" ]; do
-        case "$1" in
-            -f) force_opt=-f;;
-            -ssh)
-                shift
-                [ "${1+defined}" ] && ssh_opts="$1" || { echo "Expecting an argument after -ssh"; exit_msg 1 "$usage"; }
-                ;;
-            *) host="${1%:*}"; xdpy=$(get_xdpy "${1#$host}") ;;
-        esac
-        shift
-    done
+    local force_opt host xdpy
+    host="${1%:*}"
+    xdpy=$(get_xdpy "${1#$host}")
+    shift
+    [ "$1" = -f ] && { force_opt=-f; shift; }
+    # rest are ssh options
 
     local nx_port=$((xdpy+4000))
     local result
+    # start nxagent locally or over ssh and read cookie. then run nxproxy with that cookie
+    # if nxagent is remote, also use the ssh connection to create a tunnel for the nx traffic
 
     if [ -z "$host" ]; then
         echo "Starting/resuming local session"
-        result=$(nxhost start :$xdpy -nx link=lan $force_opt | head -n1)
+        result=$(nxhost start :$xdpy $force_opt link=lan | head -n1)
     else
         echo "Starting/resuming session on $host"
-        result=$(ssh -T -f -o ExitOnForwardFailure=yes -L$nx_port:localhost:$nx_port $host $ssh_opts "nxhost start :$xdpy -nx link=wan $force_opt" | head -n1)
+        result=$(ssh -T -f -o ExitOnForwardFailure=yes -L$nx_port:localhost:$nx_port $host "$@" "nxhost start :$xdpy $force_opt link=wan" | head -n1)
     fi
 
     local tag cookie
@@ -97,6 +93,7 @@ nxviewer-connect() {
 
 nxviewer-suspend() {
     local xdpy=$(get_xdpy "$1")
+    # suspending nxproxy is enough, nxagent gets suspended automatically
 
     if kill -HUP $(pid $xdpy) 2> /dev/null; then
         echo "Session :$xdpy suspended"
@@ -107,7 +104,10 @@ nxviewer-suspend() {
 
 nxviewer-list() {
     if [ "${1+defined}" ]; then
-        ssh "$1" $ssh_opts -t "nxhost list"
+        local host
+        host=$1
+        shift
+        ssh "$host" "$@" -t "nxhost list"
     else
         cd $HOME/.nx
         local xdpy
@@ -123,7 +123,7 @@ nxviewer-list() {
     fi
 }
 
-
+[ $# -eq 0 ] && { echo "$usage"; exit_msg 0 "Type $script -h for complete help text."; }
 cmd="$1"
 shift
 

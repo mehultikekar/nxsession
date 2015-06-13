@@ -1,10 +1,10 @@
 #!/bin/bash
-unset XAUTHORITY DISPLAY
-
+XAUTHORITY=$HOME/.Xauthority # gnome sets this to something else, we reset it to default for consistency
+export XAUTHORITY
 script=$(basename ${BASH_SOURCE[0]})
 
 usage="Usage:
-  $script start :<display> [-f] [-nx <opts>]
+  $script start :<display> [-f] [<nx_opts>...]
   $script suspend :<display>
   $script stop :<display>
   $script list
@@ -19,6 +19,7 @@ exit_msg() {
 base() { echo "$HOME/.nx/C-$1"; }
 
 pid() {
+    # prints pid and return success if nxagent is running, else return fail
     local pid
     if pid=$(cat $(base $1)/pid 2> /dev/null); then
         if ps -p "$pid" -o euid,comm | grep -q $(id -u)" nxagent"; then
@@ -29,28 +30,24 @@ pid() {
     return 1
 }
 
+# return success if nxagent is listening on its port
 is_active() { fuser -s $(($1+4000))/tcp; }
 
 _suspend() {
     local pid=$1
-    kill -HUP $pid
+    kill -HUP $pid # HUP suspends and resumes nxagent
     sleep 1
     pkill -HUP -P $pid # this is for the 2nd nxagent started by the 1st one as a watchdog
     sleep 1
 }
 
 nxhost-start() {
-    local xdpy nx_opts
-    local force=false
-    while [ "${1+defined}" ]; do
-        case "$1" in
-            -f) force=true ;;
-           -nx) shift
-                [ "${1+defined}" ] && nx_opts="$1" || { echo "Expecting argument after -nx"; exit_msg 1 "$usage"; } ;;
-             *) xdpy=$(get_xdpy "$1") ;;
-        esac
-        shift
-    done
+    local xdpy force nx_opts
+    xdpy=$(get_xdpy "$1")
+    shift
+    [ "$1" = -f ] && { force=true; shift; } || force=false
+    nx_opts="$@"
+
     local nx_base=$(base $xdpy)
 
     save_cookie() {
@@ -60,6 +57,7 @@ nxhost-start() {
     local pid cookie
 
     if pid=$(pid $xdpy); then
+        # nxagent is already running. suspend it, save new options and resume it.
         if is_active $xdpy; then
             $force || exit_msg 1 "Did not connect as another connection is active. Try again with -f."
             _suspend $pid
@@ -68,6 +66,7 @@ nxhost-start() {
         save_cookie $cookie
         kill -HUP $pid
     else
+        # generate a new cookie, start nxagent, run startup script
         is_active $xdpy && exit_msg 1 "Cannot start as NX port is in use. Try with a different <display>."
         fuser -s $((xdpy+6000))/tcp && exit_msg 1 "Cannot start as display :$xdpy is in use. Try with a different <display>."
 
@@ -78,13 +77,15 @@ nxhost-start() {
         xauth add :$xdpy . $cookie
 
         save_cookie $cookie
-        nxagent -display nx/nx,options=$nx_base/options:$xdpy :$xdpy -R -nolisten tcp -persistent -reset -dpi 144 -forcenx -class TrueColor -auth $HOME/.Xauthority &> $nx_base/session &
+        nxagent -display nx/nx,options=$nx_base/options:$xdpy :$xdpy -R -nolisten tcp -persistent -reset -dpi 96 -forcenx -class TrueColor -auth $XAUTHORITY &> $nx_base/session &
         echo $! > $nx_base/pid
 
+        # wait for nxagent to start listening on its port
         while ! is_active $xdpy; do
             sleep 1
         done
 
+        # run ~/.nx/xstartup, with xterm as fallback
         ( DISPLAY=":$xdpy"
         export DISPLAY
         $HOME/.nx/xstartup &
@@ -94,7 +95,7 @@ nxhost-start() {
         fi ) &> $nx_base/x_session
     fi
 
-    echo "Cookie:$cookie"
+    echo "Cookie:$cookie" # the cookie is used by nxviewer to secure nxproxy
     sleep 1
 }
 
@@ -127,6 +128,7 @@ nxhost-list() {
 }
 
 nxhost-suspend() {
+    # not really useful for anything except perhaps debugging
     local xdpy=$(get_xdpy "$1")
     local pid
 
@@ -138,6 +140,7 @@ nxhost-stop() {
     local pid
 
     if pid=$(pid $xdpy); then
+        # first suspend to make it stop listening on port then kill
         is_active $xdpy && _suspend $pid
         kill -TERM $pid || kill -9 $pid
         xauth remove :$xdpy
@@ -147,8 +150,10 @@ nxhost-stop() {
     fi
 }
 
+[ $# -eq 0 ] && exit_msg 0 "$usage"
 cmd="$1"
 shift
+
 case "$cmd" in
     start|stop|suspend|list) nxhost-$cmd "$@";;
     -h) exit_msg 0 "$usage";;
