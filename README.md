@@ -19,22 +19,22 @@ The code is just one bash script each for the viewer and host - [nxviewer](nxvie
 Say you have two machines `work` and `home`. You are at `home` and want to run programs on `work`:
 
 ```bash
-home> nxviewer connect work:3
+home> nxviewer work:3
 # this starts an NX session on work with windows on home.
 # by default, it opens xterm from which you launch other programs.
-# once you are done, suspend the session as:
+# once you are done, suspend the session with:
 home> nxviewer suspend :3
-# at work, you can get back the windows as:
-work> nxviewer connect :3
+# at work, you can get back the windows with:
+work> nxviewer :3
 ```
 
 Or, if you are at `work` and intend to continue on `home` later:
 
 ```bash
-work> nxviewer connect :3
+work> nxviewer :3
 # this starts and displays an NX session on work.
-# at home, you can move all windows from work as:
-home> nxviewer connect work:3 -f
+# at home, you can move all windows from work with:
+home> nxviewer work:3 -f
 ```
 
 ## Install host and viewer on Linux (without root access)

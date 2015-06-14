@@ -2,7 +2,7 @@
 script=$(basename ${BASH_SOURCE[0]})
 
 usage="Usage:
-  $script connect [<host>]:<display> [-f] [<ssh_opts>...]
+  $script [<host>]:<display> [-f] [<ssh_opts>...]
   $script suspend :<display>
   $script list
   $script list <host> [<ssh_opts>...]
@@ -12,10 +12,11 @@ full_help="Connect to persistent X sessions. Like screen or tmux for X!
 
 "$usage"
 
-Commands:
-  connect     Connect to remote session on <host>. A session will automatically
-              be created if one doesn't exist. Will connect to a local session
-              if no <host> is provided.
+The default command is to connect to remote session on <host>. A session will
+automatically be created if it doesn't exist. Without a <host>, it will connect
+to a local session.
+
+Other commands:
   suspend     Suspend remote session. A suspended session can be resumed later
               from the same or different viewer computer.
   list        List remote sessions connected to.
@@ -124,7 +125,7 @@ cmd="$1"
 shift
 
 case "$cmd" in
-    connect|suspend|list) nxviewer-$cmd "$@";;
+    suspend|list) nxviewer-$cmd "$@";;
     -h) exit_msg 0 "$full_help";;
-     *) echo "Unknown command: $cmd"; exit_msg 1 "$usage";;
+     *) nxviewer-connect "$cmd" "$@";;
 esac
