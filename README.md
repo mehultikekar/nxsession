@@ -102,7 +102,7 @@ Download the X2Go Client dmg from [here](http://wiki.x2go.org/doku.php/download:
 
 ## Notes
 
-1. A new session executes `~/.nx/xstartup` file. If it fails, it will try `xterm`.
+1. A new session executes `~/.nx/xstartup` if available. Else, it will try `xterm`.
 2. If you closed your terminal and cannot open any new programs in the session, ssh to the remote machine and run `env DISPLAY=:<display> xterm &`.
 3. If you left the session connected to one machine and want to access it on another, add `-f` to force the first machine to disconnect.
 4. Run `nxviewer -h` to see all available commands and options.

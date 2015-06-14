@@ -1,6 +1,5 @@
 #!/bin/bash
-XAUTHORITY=$HOME/.Xauthority # gnome sets this to something else, we reset it to default for consistency
-export XAUTHORITY
+export XAUTHORITY=$HOME/.Xauthority # gnome sets this to something else, we reset it to default for consistency
 script=$(basename ${BASH_SOURCE[0]})
 
 usage="Usage:
@@ -91,13 +90,9 @@ nxhost-start() {
         done
 
         # run ~/.nx/xstartup, with xterm as fallback
-        ( DISPLAY=":$xdpy"
-        export DISPLAY
-        $HOME/.nx/xstartup &
-        if [ $? -ne 0 ] ; then
-            [ -r $HOME/.Xresources ] && xrdb -merge $HOME/.Xresources
-            xterm &
-        fi ) &> $nx_base/x_session
+        ( export DISPLAY=":$xdpy"
+        [ -x $HOME/.nx/xstartup ] && startup=$HOME/.nx/xstartup || startup=xterm
+        $startup & ) &> $nx_base/x_session
     fi
 
     read viewer _ <<< $SSH_CONNECTION
