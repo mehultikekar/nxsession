@@ -12,7 +12,7 @@ It is better than VNC because:
 1. It has much lower bandwidth requirement.
 2. It plays well with multi-monitor setups.
 
-The code is just one bash script each for the viewer and host - [nxviewer](nxviewer) and [nxhost](nxhost) that call NX 3 binaries nxproxy and nxagent respectively. At present, it has been tested on Linux host and Linux/Mac OS X viewer setups. Windows viewer is being developed.
+The code is just one bash script each for the viewer and host - [nxviewer](nxviewer) and [nxhost](nxhost) that call NX 3 binaries nxproxy and nxagent respectively. At present, it has been tested on Linux host and Linux/Mac OS X viewer setups. A Windows viewer might be possible using [nxlogin](http://saurus.steg0.eu/proj/nxlogin).
 
 ## How to use
 
